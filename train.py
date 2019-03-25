@@ -22,7 +22,7 @@ X[1] = np.array(X[1])
 
 # Shuffle the data
 idxs = list(range(len(Y)))
-X = X[idxs]
+X = list(map(lambda X: X[idxs], X))
 Y = Y[idxs]
 
 # Display the distribution of each possible output

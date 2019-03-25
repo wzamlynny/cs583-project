@@ -1,8 +1,11 @@
 
-import pandas as pd
 import os
-
+from PIL import Image
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+
+from tqdm import tqdm
 
 numeric_cols = [
     'Age', 'Breed1', 'Breed2',
@@ -28,17 +31,18 @@ def load_pet_files(regdir):
     pfiles = {}
 
     # Extract the pet names
-    for f in os.listdir(regdir):
+    for f in tqdm(os.listdir(regdir), desc='Loading Pet Files'):
         # Extract the name
         n = f[:f.index('-')]
         url = os.path.join(regdir, f)
+        img = load_image(url)
         if n in pfiles:
             # Add to the entry
-            pfiles[n].append(url)
+            pfiles[n].append(img)
+
         else:
             # Add a new entry
-            pfiles[n] = [url]
-
+            pfiles[n] = [img]
     return pfiles
             
 
@@ -54,7 +58,7 @@ def load_train_data():
     states = states['StateID'].tolist()
 
     X_num = []
-    X_pic = [] # TODO: Load the actual pictures
+    X_pic = []
 
     Y = []
     
@@ -87,3 +91,8 @@ def load_train_data():
 
     return X, Y
 
+def load_image(img_file, size=64):
+    # print('img file:', img_file)
+    img = Image.open(img_file)
+    img = img.resize((size, size), Image.ANTIALIAS)
+    return np.array(img)
