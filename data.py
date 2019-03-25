@@ -2,12 +2,14 @@
 import pandas as pd
 import os
 
+import numpy as np
+
 numeric_cols = [
     'Age', 'Breed1', 'Breed2',
     'Gender', 'Color1', 'Color2', 'Color3',
     'MaturitySize', 'FurLength',
     'Vaccinated', 'Dewormed', 'Sterilized',
-    'Health', 'Quantity', 'Fee', 'State',
+    'Health', 'Quantity', 'Fee',
     'VideoAmt', 'PhotoAmt'
 ]
 
@@ -28,7 +30,7 @@ def load_pet_files(regdir):
     # Extract the pet names
     for f in os.listdir(regdir):
         # Extract the name
-        n = x[:x.index('-')]
+        n = f[:f.index('-')]
         url = os.path.join(regdir, f)
         if n in pfiles:
             # Add to the entry
@@ -47,6 +49,10 @@ def load_train_data():
     # Get the pet pictures
     petpics = load_pet_files('data/train_images/')
 
+    # Get the state ids
+    states = load_data('data/state_labels.csv')
+    states = states['StateID'].tolist()
+
     X_num = []
     X_pic = [] # TODO: Load the actual pictures
 
@@ -54,14 +60,13 @@ def load_train_data():
     
     # Build a single object to store the X values
     X = [X_num, X_pic]
-    # Laziness
-    if len(X) == 1:
-        X = X[0]
     
     for _, row in dta.iterrows():
         # Save the numeric values
         vals = row[numeric_cols]
-        X_num.append(vals)
+        state = [x == row['State'] for x in states]
+        assert(sum(state) == 1)
+        X_num.append(np.array(list(vals) + state))
         
         # Save the pictures
         if row['PetID'] in petpics:
@@ -71,6 +76,14 @@ def load_train_data():
         
         # Save the answer
         Y.append(row['AdoptionSpeed'])
+
+    # Laziness
+    if len(X) == 1:
+        X = np.array(X[0])
+    else:
+        X = list(map(np.array, X))
+
+    Y = np.array(Y)
 
     return X, Y
 
