@@ -28,6 +28,9 @@ def load_pet_files(regdir):
     returns a dictionary containing keypairs (k, v) such that v
     matches the regex (k\-.*) where k is the key (a valid PetID).
     """
+    if os.path.isfile(os.path.join(regdir + 'picked_pictures.npy')):
+        print("Images loaded from existing file")
+        return np.load(os.path.join(regdir + 'picked_pictures.npy'))
     pfiles = {}
 
     # Extract the pet names
@@ -43,6 +46,8 @@ def load_pet_files(regdir):
         else:
             # Add a new entry
             pfiles[n] = [img]
+
+    np.save(os.path.join(regdir + 'picked_pictures.npy'), pfiles)
     return pfiles
             
 
