@@ -75,6 +75,9 @@ class ConvModel(KaggleModel):
 
         super().__init__(model, train, test)
 
+    def compile(self):
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
 if __name__ == '__main__':
     mdl = ConvModel(None, None)
 
