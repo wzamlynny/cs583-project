@@ -7,13 +7,55 @@ import pandas as pd
 from tqdm import tqdm
 
 numeric_cols = [
-    'Age', 'Breed1', 'Breed2',
+    'Age', 'Type', 'Breed1', 'Breed2',
     'Gender', 'Color1', 'Color2', 'Color3',
-    'MaturitySize', 'FurLength',
-    'Vaccinated', 'Dewormed', 'Sterilized',
-    'Health', 'Quantity', 'Fee',
+    'MaturitySize', 'FurLength', 'Vaccinated',
+    'Dewormed', 'Sterilized', 'Health',
+    'Quantity', 'Fee', 'State',
     'VideoAmt', 'PhotoAmt'
 ]
+
+one_hot_cols = {
+    'Type': 2, 'Breed1': 307, 'Breed2': 307,
+    'Gender': 3, 'Color1': 7, 'Color2': 7,
+    'Color3': 7, 'MaturitySize': 5,
+    'FurLength': 4, 'Vaccinated': 4,
+    'Dewormed': 4, 'Sterilized': 4,
+    'Health': 4, 'State': 15
+}
+
+def one_hot_encode(df, col, num_class, labels=None, remove_original=True):
+    ''' Takes in dataframe df and replaces col with num_class columns
+        For example, use as follows
+        for col, num_class in data.one_hot_cols.items():
+            one_hot_encode(train_df, col, num_class)
+    '''
+    # get the true values from data
+    column_values = np.sort(df[col].unique())
+    
+    if num_class == 2:
+        # These can just be boolean
+        df[col] = (df[col] == column_values[0]).astype(int)
+    else:
+        if (num_class != len(column_values)):
+            # Issue if the lengths don't match, don't use labels
+            labels = None
+            
+        for i in range(num_class):
+            if (i >= len(column_values)):
+                break # Index out of bounds
+            cur_value = column_values[i]
+            if labels:
+                # If labels are provided use these for columns names
+                df[labels[i]] = (df[col] == cur_value).astype(int)
+
+            else:
+                # Otherwise just append id to col name
+                df[col+'_'+str(cur_value)] = (df[col] == cur_value).astype(int)
+    
+        if remove_original:
+            # delete original column
+            df.drop(col, axis=1, inplace=True)
 
 def load_data(fname):
     return pd.read_csv(fname)
