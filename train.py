@@ -11,12 +11,20 @@ X, Y = load_train_data()
 
 #X = X[0] # For non-image training, just use the labels
 
-# For single image training, just use the first image
-imgs = np.zeros((len(X[1]), 64, 64, 3))
+# For single image training, make a datapoint for each image or the default zero image
+Xs = [[], []]
 for i in range(len(X[1])):
-    if len(X[1][i]) > 0:
-        imgs[i] = X[1][i][0]
-X[1] = imgs
+    Xs[0].append(X[0][i])
+    if len(X[1][i]) == 0:
+        Xs[1].append(np.zeros((64, 64, 3)))
+    else:
+        # Make a datapoint for all images. We assume equal relevance of images.
+        for img in X[1][i]:
+            Xs[0].append(X[0][i])
+            Xs[1].append(img)
+
+# Convert all to numpy
+X = list(map(np.array, Xs))
 
 # Shuffle the data
 idxs = list(range(len(Y)))
