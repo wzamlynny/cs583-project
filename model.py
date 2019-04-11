@@ -29,41 +29,60 @@ class KaggleModel:
     def predict(self, X):
         return self.model.predict(X)
 
+
+def ResidualBlock(mdl):
+    x = Input(shape=mdl.input_shape[1:])
+
+    y = mdl(x)
+    y = Add()([x, y])
+
+    return Model(x, y)
+
 class ImageFreeModel(KaggleModel):
     def __init__(self, train, test):
-        model = Sequential(name='image_free')
+        kernel = Sequential(name='image_free_encoder')
+        kernel.add(BatchNormalization(input_shape=(34,)))
+
+        kernel.add(Dense(64))
+        kernel.add(BatchNormalization(input_shape=(34,)))
         
-        model.add(Dense(32, activation='sigmoid', input_shape=(32,)))
+        # Use a single dense residual block
+        blk = Sequential()
+        blk.add(Activation('relu', input_shape=kernel.output_shape[1:]))
+        blk.add(Dense(64))
+        blk.add(BatchNormalization())
+
+        blk.add(Activation('relu'))
+        blk.add(Dense(64))
+        blk.add(BatchNormalization())
+
+        kernel.add(ResidualBlock(blk))
+
+        model = Sequential(name='image_free')
+        model.add(kernel)
 
         # Labels are one of [0, 1, 2, 3, 4]
         model.add(Dense(5, activation='softmax'))
-        
+
         # Build using the built model
         super().__init__(model, train, test)
 
     def compile(self):
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-class ConvModel(KaggleModel):
+class SingleImageModel(KaggleModel):
     def __init__(self, train, test):
         # The model takes in attributes and an image.
-        attr = Input(shape=(32,))
-        img = Input(shape=(64, 64, 3))
+        kernel = Sequential(name='single_image_encoder')
         
-        # Architecture for the attributes
-        y_attr = attr
-        y_attr = Dense(64, activation='relu')(y_attr)
-        y_attr = Dense(128, activation='relu')(y_attr)
-
         # Architecture for the images
-        y_img = img
-        y_img = Conv2D(64, kernel_size=(7,7), strides=(1,1), padding='same')(y_img)
-        y_img = BatchNormalization()(y_img)
+        kernel.add(Conv2D(64, kernel_size=(7,7), strides=(1,1), padding='same', input_shape=(64, 64, 3)))
+        kernel.add(BatchNormalization())
 
-        while y_img.shape[1] > 4:
+        while kernel.output_shape[1] > 4:
             for _ in range(2):
                 # Old output is kept as residue
-                y = z = y_img
+                x = z = Input(shape=(kernel.output_shape[1:]))
 
                 z = Activation('relu')(z)
                 z = Conv2D(64, kernel_size=(5,5), strides=(1,1), padding='same')(z)
@@ -74,24 +93,58 @@ class ConvModel(KaggleModel):
                 z = BatchNormalization()(z)
                 
                 # The sum of the residue and the new computation
-                y_img = Add()([y, z])
+                y = Add()([x, z])
+                
+                # Add the residual block
+                blk = Model(x, y)
+                kernel.add(blk)
             
             # Reduce dimension
-            y_img = MaxPooling2D((2,2))(y_img)
+            kernel.add(MaxPooling2D((2,2)))
         
-        y_img = Flatten()(y_img)
-        y_img = Dense(128, activation='relu')(y_img)
+        kernel.add(Flatten())
 
-        # Final processing
-        y = Concatenate()([y_attr, y_img])
+        kernel.add(Dropout(0.5))
+        kernel.add(Dense(128, activation='relu'))
 
-        y = Dropout(0.5)(y)
-        y = Dense(64, activation='relu')(y)
+        model = Sequential(name='single_image')
 
-        y = Dense(5, activation='softmax')(y)
+        model.add(kernel)
+        model.add(Dense(5, activation='softmax'))
 
-        model = Model([attr, img], y)
-        model.name = 'conv_model'
+        super().__init__(model, train, test)
+
+    def compile(self):
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+class UnionModel(KaggleModel):
+    def __init__(self, models, train, test):
+        
+        xs = []
+        ys = []
+        for model in models:
+            x = Input(shape=model.input_shape[1:], name='{}_in'.format(model.name))
+            # Get the first layer of the model. This is the encoder
+            layer = model.get_layer(index=0)
+            # It must not be trainable
+            layer.trainable = False
+            # The output only utilizes the encoder component
+            y = layer(x)
+            # Output should be flat
+            if len(y.shape) > 2:
+                y = Flatten()(y)
+            # Save values
+            xs.append(y)
+            ys.append(y)
+
+        y = Concatenate()(ys)
+
+        y = Dense(128)
+        y = BatchNormalization()(y)
+
+        y = Dense(5, activation='softmax')
+        
+        model = Model(xs, y)
 
         super().__init__(model, train, test)
 
@@ -100,4 +153,5 @@ class ConvModel(KaggleModel):
 
 if __name__ == '__main__':
     mdl = ConvModel(None, None)
+    mdl.summary()
 

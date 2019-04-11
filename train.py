@@ -11,54 +11,102 @@ X, Y = load_train_data()
 
 #X = X[0] # For non-image training, just use the labels
 
-# For single image training, make a datapoint for each image or the default zero image
-Xs = [[], []]
-for i in range(len(X[1])):
-    Xs[0].append(X[0][i])
-    if len(X[1][i]) == 0:
-        Xs[1].append(np.zeros((64, 64, 3)))
+def shuffle(X, Y):
+    idxs = list(range(len(Y)))
+    
+    if isinstance(X, list):
+        for i in range(len(X)):
+            X[i] = X[i][idxs]
     else:
-        # Make a datapoint for all images. We assume equal relevance of images.
-        for img in X[1][i]:
-            Xs[0].append(X[0][i])
-            Xs[1].append(img)
+        X = X[idxs]
 
-# Convert all to numpy
-X = list(map(np.array, Xs))
+    Y = Y[idxs]
 
-# Shuffle the data
-idxs = list(range(len(Y)))
-X = list(map(lambda X: X[idxs], X))
-Y = Y[idxs]
+def split(X, Y, s=0.2):
+    s = int(s * len(Y))
+    
+    if isinstance(X, list):
+        X_train = [x[:-s] for x in X]
+        X_test = [x[-s:] for x in X]
+    else:
+        X_train = X[:-s]
+        X_test = X[-s:]
 
-# Display the distribution of each possible output
-hist = np.histogram(Y, bins=[0,1,2,3,4,5])
-print(hist)
-for i in range(5):
-    print('Num w/ label', i, ':', hist[0][i])
-print('Total:', len(Y))
+    Y_train = Y[:-s]
+    Y_test = Y[-s:]
 
-# One hot encode the output
-Y = to_categorical(Y)
+    return (X_train, Y_train), (X_test, Y_test)
 
-# Validation split
-s = int(0.2 * len(Y))
-X_train = [x[:-s] for x in X]
-Y_train = Y[:-s]
-X_valid = [x[-s:] for x in X]
-Y_valid = Y[-s:]
 
-print('Training points:', len(Y_train))
-print('Validation points:', len(Y_valid))
-print('Total points:', len(Y))
+def convert_for_all(X, Y):
+    # For single image training, make a datapoint for each image or the default zero image
+    Xs = [[], []]
+    Ys = []
+    for i in range(len(X[1])):
+        Xs[0].append(X[0][i])
+        if len(X[1][i]) == 0:
+            Xs[1].append(np.zeros((64, 64, 3)))
+            Ys.append(Y[i])
+        else:
+            # Make a datapoint for all images. We assume equal relevance of images
+            for img in X[1][i]:
+                Xs[0].append(X[0][i])
+                Xs[1].append(img)
+                Ys.append(Y[i])
 
+    X = list(map(np.array, Xs))
+    Y = np.array(Ys)
+
+    return X, Y
+
+def convert_for_single_axis(X, Y, ax=0):
+    return X[ax], Y
+
+def train_model(mdl, X, Y, epochs=32):
+    # Shuffle the data
+    shuffle(X, Y)
+
+    # One hot encode the output
+    Y = to_categorical(Y)
+
+    # Validation split
+    (X_train, Y_train), (X_valid, Y_valid) = split(X, Y)
+
+    print('Training points:', len(Y_train))
+    print('Validation points:', len(Y_valid))
+    print('Total points:', len(Y))
+
+    clf = mdl((X_train, Y_train), (X_valid, Y_valid))
+
+    # Build the model
+    clf.compile()
+
+    # Fit to the data
+    clf.train(epochs=epochs)
+
+    return clf
+
+
+# Attribute model data
+X_attr, Y_attr = convert_for_single_axis(X, Y, ax=0)
+# Image-free model
+attr_clf = ImageFreeModel
+# Train the model
+attr_clf = train_model(attr_clf, X_attr, Y_attr)
+
+# Create inputs for convolutional model
+X_conv, Y_conv = convert_for_all(X, Y)
+X_conv = X_conv[1]
+print(X_conv.shape)
 # Build a model
-#clf = ImageFreeModel((X_train, Y_train), (X_valid, Y_valid))
-clf = ConvModel((X_train, Y_train), (X_valid, Y_valid))
+conv_clf = SingleImageModel
+# Train the model
+conv_clf = train_model(conv_clf, X_conv, Y_conv)
 
-# Build the model
-clf.compile()
-
-# Fit to the data
-clf.train(epochs=32)
+# Create inputs for convolutional model
+X_conv, Y_conv = convert_for_all(X, Y)
+# Build a model
+conv_clf = lambda tr, tst: ConvModel([conv_clf, attr_clf], tr, tst)
+# Train the model
+conv_clf = train_model(conv_clf, X_conv, Y_conv)
 
