@@ -19,8 +19,8 @@ one_hot_cols = {
     'Type': 2, 'Breed1': 307, 'Breed2': 307,
     'Gender': 3, 'Color1': 7, 'Color2': 7,
     'Color3': 7, 'MaturitySize': 5,
-    'FurLength': 4, 'Vaccinated': 4,
-    'Dewormed': 4, 'Sterilized': 4,
+    'FurLength': 4, 'Vaccinated': 3,
+    'Dewormed': 3, 'Sterilized': 3,
     'Health': 4, 'State': 15
 }
 
@@ -116,6 +116,9 @@ def load_train_data():
     states = load_data('data/state_labels.csv')
     states = states['StateID'].tolist()
 
+    # Load parsed sentiment
+    sentiment = load_data('sentiment_parsed.csv')
+
     X_num = []
     X_pic = []
 
@@ -136,6 +139,11 @@ def load_train_data():
             X_pic.append(petpics[row['PetID']])
         else:
             X_pic.append([])
+
+        # Join sentiment on PetID
+        s = sentiment[sentiment['PetID'] == row['PetID']]
+        for col in s:
+            row[col] = s[col][0]
         
         # Save the answer
         Y.append(row['AdoptionSpeed'])
