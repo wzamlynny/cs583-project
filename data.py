@@ -24,38 +24,51 @@ one_hot_cols = {
     'Health': 4, 'State': 15
 }
 
-def one_hot_encode(df, col, num_class, labels=None, remove_original=True):
+def one_hot_encode(df, col, num_class=None, labels=None, inplace=False):
     ''' Takes in dataframe df and replaces col with num_class columns
         For example, use as follows
         for col, num_class in data.one_hot_cols.items():
             one_hot_encode(train_df, col, num_class)
     '''
     # get the true values from data
-    column_values = np.sort(df[col].unique())
-    
+    column_values = np.sort(df[col].dropna().unique())
+    if num_class == None:
+        num_class = len(column_values)
     if num_class == 2:
         # These can just be boolean
-        df[col] = (df[col] == column_values[0]).astype(int)
-    else:
-        if (num_class != len(column_values)):
-            # Issue if the lengths don't match, don't use labels
-            labels = None
-            
-        for i in range(num_class):
-            if (i >= len(column_values)):
-                break # Index out of bounds
-            cur_value = column_values[i]
-            if labels:
-                # If labels are provided use these for columns names
-                df[labels[i]] = (df[col] == cur_value).astype(int)
+        if inplace:
+            df[col] = (df[col] == column_values[0]).astype(int)
+        else:
+            return (df[col] == column_values[0]).astype(int)
+    else:        
+        if labels is not None:
+            res = np.zeros((len(df), num_class))
+            for i, label in enumerate(labels):
+                if inplace:
+                    df[col+'_'+str(label)] = (df[col] == label).astype(int)
+                else:
+                    one_hot = np.zeros(num_class)
+                    one_hot[i] = 1
+                    res[df[col] == label] = one_hot
+        else:
+            res = np.zeros((len(df), num_class))
+            for i in range(num_class):
+                if (i >= len(column_values)):
+                    break # Index out of bounds
+                cur_value = column_values[i]
 
-            else:
-                # Otherwise just append id to col name
-                df[col+'_'+str(cur_value)] = (df[col] == cur_value).astype(int)
+                if inplace:
+                    df[col+'_'+str(cur_value)] = (df[col] == cur_value).astype(int)
+                else:
+                    one_hot = np.zeros(num_class)
+                    one_hot[i] = 1
+                    res[df[col] == cur_value] = one_hot
     
-        if remove_original:
+        if inplace:
             # delete original column
             df.drop(col, axis=1, inplace=True)
+        else:
+            return res
 
 def load_data(fname):
     return pd.read_csv(fname)
