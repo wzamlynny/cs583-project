@@ -70,6 +70,22 @@ def one_hot_encode(df, col, num_class=None, labels=None, inplace=False):
         else:
             return res
 
+def get_sentiment(df, sentiment_location):
+    ''' Parses the text sentiment metadata and adds a few additional
+        metrics to the specified dataframe.
+    '''
+    sentiment_files = glob(sentiment_location + "/*")
+
+    # Add some additional metrics from the sentiment files
+    for s_file in sentiment_files:
+        pet_id = s_file.split('/')[-1].split('.')[0]
+        with open(s_file) as json_file:
+            data = json.load(json_file)
+
+            df.loc[df["PetID"] == pet_id, "SentimentMagnitude"] = data['documentSentiment']['magnitude']
+            df.loc[df["PetID"] == pet_id, "SentimentScore"] = data['documentSentiment']['score']
+            df.loc[df["PetID"] == pet_id, "NumSentences"] = len(data['sentences'])
+
 def load_data(fname):
     return pd.read_csv(fname)
 

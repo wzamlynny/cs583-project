@@ -5,6 +5,7 @@
 import numpy as np
 from sklearn.metrics import accuracy_score
 from sklearn.linear_model import LinearRegression
+from sklearn import tree
 
 # Each model should take in the training_x, training_y, test_x, and test_y
 # the other ones take in as such: ConvModel((X_train, Y_train), (X_valid, Y_valid))
@@ -89,3 +90,23 @@ def linear_regression(train, valid, test):
 
     test_pred = np.around(model.predict(test_x))
     return test_pred
+
+def decision_tree(train, valid, test):
+    train_x, train_y = train
+    valid_x, valid_y = valid
+    test_x = test
+
+    clf = tree.DecisionTreeClassifier()
+
+    clf = clf.fit(train_x, train_y)
+
+    train_pred = clf.predict(train_x)
+    train_score = accuracy_score(train_y, train_pred)
+    print("Training accuracy: {}".format(train_score))
+
+    valid_pred = clf.predict(valid_x)
+    valid_score = accuracy_score(valid_y, valid_pred)
+    print("Validation accuracy: {}".format(valid_score))
+
+    test_pred = clf.predict(test_x)
+    return clf, test_pred
