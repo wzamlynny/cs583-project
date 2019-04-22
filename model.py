@@ -117,6 +117,31 @@ class SingleImageModel(KaggleModel):
     def compile(self):
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+class TextOnlyModel(KaggleModel):
+    def __init__(self, train, test, vocabulary, sequence_length_w=30):
+        embedding_dim = 32
+
+        # The model takes in attributes and an image.
+        kernel = Sequential(name='description_encoder')
+        
+        # Architecture for the images
+        kernel.add(Embedding(vocabulary, embedding_dim, input_length=sequence_length_w))
+
+        kernel.add(LSTM(embedding_dim, return_sequences=True, dropout=0.2))
+        kernel.add(LSTM(embedding_dim, return_sequences=True, dropout=0.2))
+        kernel.add(LSTM(embedding_dim, return_sequences=False, dropout=0.2))
+
+        kernel.add(Dense(32, activation='relu'))
+
+        model = Sequential(name='description')
+        model.add(kernel)
+        model.add(Dense(5, activation='softmax'))
+
+        super().__init__(model, train, test)
+
+    def compile(self):
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
 class UnionModel(KaggleModel):
     def __init__(self, models, train, test):
         
