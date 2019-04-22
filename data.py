@@ -179,3 +179,4 @@ def load_image(img_file, size=64):
     img = Image.open(img_file)
     img = img.resize((size, size), Image.ANTIALIAS)
     return np.array(img)
+
