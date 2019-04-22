@@ -109,7 +109,7 @@ class SingleImageModel(KaggleModel):
             # Reduce dimension
             kernel.add(MaxPooling2D((2,2)))
             kernel.add(Dropout(0.5))
-            kernel.add(Conv2D(2*f, kernel_size=(7,7), strides=(1,1), padding='same', input_shape=(64, 64, 3)))
+            kernel.add(Conv2D(2*f, kernel_size=(1,1), strides=(1,1), padding='same', input_shape=(64, 64, 3)))
             f *= 2
         
         
