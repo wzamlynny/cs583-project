@@ -6,6 +6,13 @@ import pandas as pd
 
 from tqdm import tqdm
 
+# Text parsing imports
+import re
+import nltk
+from nltk.corpus import wordnet, stopwords
+from nltk.stem import WordNetLemmatizer
+from unicodedata import normalize
+
 numeric_cols = [
     'Age', 'Type', 'Breed1', 'Breed2',
     'Gender', 'Color1', 'Color2', 'Color3',
@@ -179,4 +186,67 @@ def load_image(img_file, size=64):
     img = Image.open(img_file)
     img = img.resize((size, size), Image.ANTIALIAS)
     return np.array(img)
+
+def parse_description(train_df, test_df, sequence_length_w = 30):
+    train_res = pd.DataFrame(np.zeros((len(train_df),0)))
+    test_res = pd.DataFrame(np.zeros((len(test_df),0)))
+
+    stop_words = set(stopwords.words('english'))
+    lemmatizer = WordNetLemmatizer()
+
+    def get_wordnet_pos(treebank_tag):
+        '''Source: https://stackoverflow.com/questions/15586721/wordnet-lemmatization-and-pos-tagging-in-python
+        Allows lemmatization to work with more different POS
+        '''
+        if treebank_tag.startswith('J'):
+            return wordnet.ADJ
+        elif treebank_tag.startswith('V'):
+            return wordnet.VERB
+        elif treebank_tag.startswith('N'):
+            return wordnet.NOUN
+        elif treebank_tag.startswith('R'):
+            return wordnet.ADV
+        else:
+            # default to noun
+            return wordnet.NOUN
+        
+    def my_lemmatize(text):
+        ''' First tags text, determines the pos, and finally lemmatizes
+        '''
+        text = nltk.pos_tag(text)
+        return [lemmatizer.lemmatize(word, pos=get_wordnet_pos(tag)) for word, tag in text]
+
+    def preprocess_string(text):
+        if type(text) != str:
+            return []
+        text = normalize('NFD', text).encode('ascii', 'ignore')
+        text = text.decode('UTF-8')
+        text = str.lower(text)
+        text = re.sub('[^a-zA-Z\s]+', '', text)
+        text = re.sub(r'\W*\b\w{1,3}\b', '', text)
+        tokens = nltk.word_tokenize(text)
+        tokens = [token for token in tokens if token not in stop_words]
+        tokens = my_lemmatize(tokens)
+        return tokens
+
+    # Process into tokens
+    train_res["Tokens"] = [preprocess_string(text) for text in train_df["Description"]]
+    test_res["Tokens"] = [preprocess_string(text) for text in test_df["Description"]]
+
+    # Build a dictionary
+    corpus = set()
+    [corpus.add(word) for tokens in train_res["Tokens"] for word in tokens]
+    [corpus.add(word) for tokens in test_res["Tokens"] for word in tokens]
+    token_index = {word: i+1 for i, word in enumerate(corpus)}
+
+    # Encode the text - represent each token by its index
+    train_res["Sequence"] = [[token_index[token] for token in tokens] for tokens in train_res["Tokens"]]
+    test_res["Sequence"] = [[token_index[token] for token in tokens] for tokens in test_res["Tokens"]]
+
+    # Alignment
+    train_res['Sequence'] = [np.pad(seq, (0, max(sequence_length_w-len(seq),0)), 'constant')[-sequence_length_w:] for seq in train_res['Sequence']]
+    test_res['Sequence'] = [np.pad(seq, (0, max(sequence_length_w-len(seq),0)), 'constant')[-sequence_length_w:] for seq in test_res['Sequence']]
+
+    vocab_len = len(token_index.values())+1
+    return train_res['Sequence'], test_res['Sequence'], vocab_len
 
