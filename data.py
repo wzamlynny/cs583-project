@@ -3,6 +3,7 @@ import os
 from PIL import Image
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
 
 from tqdm import tqdm
 
@@ -44,9 +45,10 @@ def one_hot_encode(df, col, num_class=None, labels=None, inplace=False):
     if num_class == 2:
         # These can just be boolean
         if inplace:
-            df[col] = (df[col] == column_values[0]).astype(int)
+            # The second value will be True or 1 - keep relative order
+            df[col] = (df[col] == column_values[1]).astype(int)
         else:
-            return (df[col] == column_values[0]).astype(int)
+            return (df[col] == column_values[1]).astype(int)
     else:        
         if labels is not None:
             res = np.zeros((len(df), num_class))
@@ -250,3 +252,48 @@ def parse_description(train_df, test_df, sequence_length_w = 30):
     vocab_len = len(token_index.values())+1
     return train_res['Sequence'], test_res['Sequence'], vocab_len
 
+def parse_breeds(train_df, test_df, breed_labels, weights=[1, 1], pca_len=64, onehot=True):
+    type1_breeds_train_df = train_df[train_df['Type'] == 1-onehot] # dogs
+    type2_breeds_train_df = train_df[train_df['Type'] == 2-onehot] # cats
+    type1_breeds_test_df = test_df[test_df['Type'] == 1-onehot] # dogs
+    type2_breeds_test_df = test_df[test_df['Type'] == 2-onehot] # cats
+
+    type1_breed_labels = breed_labels[breed_labels['Type']==1]
+    type2_breed_labels = breed_labels[breed_labels['Type']==2]
+
+
+    # Run One hot encoding on the Breeds
+    type1_breed1_train_onehot = one_hot_encode(type1_breeds_train_df, 'Breed1', len(type1_breed_labels), type1_breed_labels['BreedID'])
+    type1_breed2_train_onehot = one_hot_encode(type1_breeds_train_df, 'Breed2', len(type1_breed_labels), type1_breed_labels['BreedID'])
+
+    type2_breed1_train_onehot = one_hot_encode(type2_breeds_train_df, 'Breed1', len(type2_breed_labels), type2_breed_labels['BreedID'])
+    type2_breed2_train_onehot = one_hot_encode(type2_breeds_train_df, 'Breed2', len(type2_breed_labels), type2_breed_labels['BreedID'])
+
+    type1_breed1_test_onehot = one_hot_encode(type1_breeds_test_df, 'Breed1', len(type1_breed_labels), type1_breed_labels['BreedID'])
+    type1_breed2_test_onehot = one_hot_encode(type1_breeds_test_df, 'Breed2', len(type1_breed_labels), type1_breed_labels['BreedID'])
+
+    type2_breed1_test_onehot = one_hot_encode(type2_breeds_test_df, 'Breed1', len(type2_breed_labels), type2_breed_labels['BreedID'])
+    type2_breed2_test_onehot = one_hot_encode(type2_breeds_test_df, 'Breed2', len(type2_breed_labels), type2_breed_labels['BreedID'])
+
+
+    # Weights for combining the one hot encodings
+    type1_breeds_train_onehot = weights[0]*type1_breed1_train_onehot + weights[1]*type1_breed2_train_onehot
+    type2_breeds_train_onehot = weights[0]*type2_breed1_train_onehot + weights[1]*type2_breed2_train_onehot
+    
+    type1_breeds_test_onehot = weights[0]*type1_breed1_test_onehot + weights[1]*type1_breed2_test_onehot
+    type2_breeds_test_onehot = weights[0]*type2_breed1_test_onehot + weights[1]*type2_breed2_test_onehot
+
+    # PCA
+    pca1 = PCA(pca_len)
+    pca2 = PCA(pca_len)
+    
+    pca1.fit(type1_breeds_train_onehot)
+    pca2.fit(type2_breeds_train_onehot)
+
+    type1_breeds_train_pca = pca1.transform(type1_breeds_train_onehot)
+    type2_breeds_train_pca = pca2.transform(type2_breeds_train_onehot)
+
+    type1_breeds_test_pca = pca1.transform(type1_breeds_test_onehot)
+    type2_breeds_test_pca = pca2.transform(type2_breeds_test_onehot)
+
+    return [type1_breeds_train_pca, type2_breeds_train_pca, type1_breeds_test_pca, type2_breeds_test_pca]
