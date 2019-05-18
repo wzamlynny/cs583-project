@@ -4,6 +4,7 @@
 # must be the one required by the competition.
 import numpy as np
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import cohen_kappa_score
 from sklearn.linear_model import LinearRegression
 from sklearn import tree
 
@@ -38,6 +39,8 @@ def run_random_guess(train, valid=None, test=None):
     train_pred = random_guess(train_x)
     train_score = accuracy_score(train_y, train_pred)
     print("'Training' accuracy: {}".format(train_score))
+    train_kappa = cohen_kappa_score(train_y, train_pred, weights='quadratic')
+    print("'Training' kappa: {}".format(train_kappa))
 
     if valid is not None:
         # Run "Validation"
@@ -45,6 +48,8 @@ def run_random_guess(train, valid=None, test=None):
         valid_pred = random_guess(valid_x)
         valid_score = accuracy_score(valid_y, valid_pred)
         print("'Validation' accuracy: {}".format(valid_score))
+        valid_kappa = cohen_kappa_score(valid_y, valid_pred, weights='quadratic')
+        print("'Validation' kappa: {}".format(valid_kappa))
     
     if test is not None:
         # Return results from "Testing" for Kaggle output
@@ -59,13 +64,17 @@ def run_all_n_guess(train, valid=None, test=None):
         train_pred = eval("all_{}(train_x)".format(i))
         train_score = accuracy_score(train_y, train_pred)
         print("'Training' accuracy: {}".format(train_score))
+        train_kappa = cohen_kappa_score(train_y, train_pred, weights='quadratic')
+        print("'Training' kappa: {}".format(train_kappa))
 
         if valid is not None:
             # Run "Validation"
             valid_x, valid_y = valid
             valid_pred = eval("all_{}(valid_x)".format(i))
             valid_score = accuracy_score(valid_y, valid_pred)
-            print("'Validation' accuracy: {}".format(valid_score))   
+            print("'Validation' accuracy: {}".format(valid_score))
+            valid_kappa = cohen_kappa_score(valid_y, valid_pred, weights='quadratic')
+            print("'Validation' kappa: {}".format(valid_kappa))  
 
         if test is not None:
             # Return results from "Testing" for Kaggle output
@@ -83,10 +92,14 @@ def linear_regression(train, valid, test):
     train_pred = np.around(model.predict(train_x))
     train_score = accuracy_score(train_y, train_pred)
     print("Training accuracy: {}".format(train_score))
+    train_kappa = cohen_kappa_score(train_y, train_pred, weights='quadratic')
+    print("Training kappa: {}".format(train_kappa))
 
     valid_pred = np.around(model.predict(valid_x))
     valid_score = accuracy_score(valid_y, valid_pred)
     print("Validation accuracy: {}".format(valid_score))
+    valid_kappa = cohen_kappa_score(valid_y, valid_pred, weights='quadratic')
+    print("Validation kappa: {}".format(valid_kappa)) 
 
     test_pred = np.around(model.predict(test_x))
     return test_pred
@@ -103,10 +116,14 @@ def decision_tree(train, valid, test):
     train_pred = clf.predict(train_x)
     train_score = accuracy_score(train_y, train_pred)
     print("Training accuracy: {}".format(train_score))
+    train_kappa = cohen_kappa_score(train_y, train_pred, weights='quadratic')
+    print("Training kappa: {}".format(train_kappa))
 
     valid_pred = clf.predict(valid_x)
     valid_score = accuracy_score(valid_y, valid_pred)
     print("Validation accuracy: {}".format(valid_score))
+    valid_kappa = cohen_kappa_score(valid_y, valid_pred, weights='quadratic')
+    print("Validation kappa: {}".format(valid_kappa)) 
 
     test_pred = clf.predict(test_x)
     return clf, test_pred
